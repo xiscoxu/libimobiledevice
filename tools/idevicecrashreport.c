@@ -44,6 +44,8 @@
 const char* target_directory = NULL;
 static int extract_raw_crash_reports = 0;
 static int keep_crash_reports = 0;
+static int grep_flag = 0;
+const char* grep_str = NULL;
 
 static int file_exists(const char* path)
 {
@@ -142,14 +144,17 @@ static int afc_client_copy_and_remove_crash_reports(afc_client_t afc, const char
 
 		/* assemble absolute target filename */
 		char* p = strrchr(list[k], '.');
-		if (p != NULL && !strncmp(p, ".synced", 7)) {
-			/* make sure to strip ".synced" extension as seen on iOS 5 */
-			int newlen = strlen(list[k]) - 7;
-			strncpy(((char*)target_filename) + host_directory_length, list[k], newlen);
-			target_filename[host_directory_length + newlen] = '\0';
-		} else {
-			strcpy(((char*)target_filename) + host_directory_length, list[k]);
+		if (p == NULL || strcmp(p, ".ips")) {
+			continue;
+		} 
+		if (grep_flag){
+			//printf("grep_str:::'%s'\n", grep_str);
+			if(strstr(list[k],grep_str)==NULL){
+				continue;
+			}
 		}
+		
+		strcpy(((char*)target_filename) + host_directory_length, list[k]);
 
 		/* get file information */
 		afc_get_file_info(afc, source_filename, &fileinfo);
@@ -302,6 +307,7 @@ static void print_usage(int argc, char **argv)
 	printf("  -k, --keep\t\tcopy but do not remove crash reports from device\n");
 	printf("  -d, --debug\t\tenable communication debugging\n");
 	printf("  -u, --udid UDID\ttarget specific device by its 40-digit device UDID\n");
+	printf("  -g, --grep\t\tgrep crash filename\n");
 	printf("  -h, --help\t\tprints usage information\n");
 	printf("\n");
 	printf("Homepage: <" PACKAGE_URL ">\n");
@@ -344,6 +350,12 @@ int main(int argc, char* argv[]) {
 		}
 		else if (!strcmp(argv[i], "-k") || !strcmp(argv[i], "--keep")) {
 			keep_crash_reports = 1;
+			continue;
+		}
+		else if (!strcmp(argv[i], "-g") || !strcmp(argv[i], "--grep")) {
+			grep_flag = 1;
+			i++;
+			grep_str = argv[i];
 			continue;
 		}
 		else if (target_directory == NULL) {
