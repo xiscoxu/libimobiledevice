@@ -39,6 +39,9 @@
 #include <libimobiledevice/syslog_relay.h>
 
 static int quit_flag = 0;
+static int grep_flag = 0;
+const char* grep_str = NULL;
+char line_str[2048];
 
 void print_usage(int argc, char **argv);
 
@@ -53,6 +56,19 @@ static void syslog_callback(char c, void *user_data)
 	if (c == '\n') {
 		fflush(stdout);
 	}
+}
+
+static void syslog_callback_grep(char c, void *user_data)
+{
+	int len = strlen(line_str);
+	line_str[len] = c;
+	if (c == '\n'){
+		if(strstr(line_str,grep_str) != NULL) {
+				printf("%s", line_str);
+		 	}
+		 	memset(line_str, 0, sizeof(line_str)); 
+		 	fflush(stdout);
+		}
 }
 
 static int start_logging(void)
@@ -74,7 +90,11 @@ static int start_logging(void)
 	}
 
 	/* start capturing syslog */
-	serr = syslog_relay_start_capture(syslog, syslog_callback, NULL);
+	if (grep_flag){
+		serr = syslog_relay_start_capture(syslog, syslog_callback_grep, NULL);
+		} else {
+			serr = syslog_relay_start_capture(syslog, syslog_callback, NULL);
+	    }
 	if (serr != SYSLOG_RELAY_E_SUCCESS) {
 		fprintf(stderr, "ERROR: Unable tot start capturing syslog.\n");
 		syslog_relay_client_free(syslog);
@@ -161,6 +181,12 @@ int main(int argc, char *argv[])
 			udid = strdup(argv[i]);
 			continue;
 		}
+		else if (!strcmp(argv[i], "-g") || !strcmp(argv[i], "--grep")) {
+			grep_flag = 1;
+			i++;
+			grep_str = argv[i];
+			continue;
+		}
 		else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 			print_usage(argc, argv);
 			return 0;
@@ -208,8 +234,8 @@ void print_usage(int argc, char **argv)
 	printf("Relay syslog of a connected device.\n\n");
 	printf("  -d, --debug\t\tenable communication debugging\n");
 	printf("  -u, --udid UDID\ttarget specific device by its 40-digit device UDID\n");
+	printf("  -g, --grep\t\tgrep string line by line\n");
 	printf("  -h, --help\t\tprints usage information\n");
 	printf("\n");
 	printf("Homepage: <" PACKAGE_URL ">\n");
 }
-
